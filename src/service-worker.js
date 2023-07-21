@@ -1,6 +1,7 @@
 let esUrl
 let sseRequestId
 let attachedTabId
+let attached = false
 const esPathPrefix = '/__maltoze-sse-viewer'
 const bodyQueue = []
 
@@ -16,17 +17,36 @@ function sendCommand(target, method, params) {
   })
 }
 
-chrome.action.onClicked.addListener(function (tab) {
-  if (tab.url.startsWith('http')) {
-    attachedTabId = tab.id
-    chrome.debugger.attach({ tabId: attachedTabId }, '1.2', function () {
-      sendCommand({ tabId: attachedTabId }, 'Fetch.enable', {
-        patterns: [{ requestStage: 'Request' }, { requestStage: 'Response' }],
-      })
+chrome.action.onClicked.addListener(async function (tab) {
+  if (attached) {
+    await chrome.debugger.detach({ tabId: attachedTabId })
+    attached = false
+    chrome.action.setIcon({
+      tabId: attachedTabId,
+      path: 'assets/icon-gray.png',
     })
   } else {
-    console.log('Debugger can only be attached to HTTP/HTTPS pages.')
+    if (tab.url.startsWith('http')) {
+      chrome.debugger.attach({ tabId: tab.id }, '1.2', function () {
+        attachedTabId = tab.id
+        attached = true
+        sendCommand({ tabId: attachedTabId }, 'Fetch.enable', {
+          patterns: [{ requestStage: 'Request' }, { requestStage: 'Response' }],
+        })
+        chrome.action.setIcon({
+          tabId: attachedTabId,
+          path: 'assets/icon.png',
+        })
+      })
+    } else {
+      console.log('Debugger can only be attached to HTTP/HTTPS pages.')
+    }
   }
+})
+
+chrome.debugger.onDetach.addListener(function (source, reason) {
+  attached = false
+  chrome.action.setIcon({ tabId: attachedTabId, path: 'assets/icon-gray.png' })
 })
 
 chrome.debugger.onEvent.addListener(async function (source, method, params) {
