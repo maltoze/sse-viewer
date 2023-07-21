@@ -3,7 +3,7 @@
   "name": "SSE Viewer",
   "description": "SSE Viewer is a Chrome extension for displaying EventStream in the devtools",
   "version": "0.1.0",
-  "permissions": ["debugger", "tabs"],
+  "permissions": ["debugger", "activeTab"],
   "background": {
     "service_worker": "service-worker.js"
   },
