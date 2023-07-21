@@ -32,14 +32,6 @@ chrome.debugger.onEvent.addListener(async function (source, method, params) {
     active: true,
     lastFocusedWindow: true,
   })
-
-  if (
-    params.requestId === sseRequestId &&
-    (method === 'Network.loadingFinished' || method === 'Network.loadingFailed')
-  ) {
-    chrome.tabs.sendMessage(tab.id, { type: 'close' })
-  }
-
   if (method === 'Fetch.requestPaused') {
     const reqUrl = new URL(params.request.url)
     if (reqUrl.pathname === esUrl) {
