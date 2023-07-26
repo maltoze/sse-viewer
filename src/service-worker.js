@@ -1,6 +1,6 @@
 let esUrl
-let sseRequestId
 let attachedTabId
+let attachedSwId
 let attached = false
 const esPathPrefix = '/__maltoze-sse-viewer'
 const bodyQueue = []
@@ -19,7 +19,8 @@ function sendCommand(target, method, params) {
 
 chrome.action.onClicked.addListener(async function (tab) {
   if (attached) {
-    await chrome.debugger.detach({ tabId: attachedTabId })
+    chrome.debugger.detach({ tabId: attachedTabId })
+    attachedSwId && chrome.debugger.detach({ targetId: attachedSwId })
     attached = false
     chrome.action.setIcon({
       tabId: attachedTabId,
@@ -27,7 +28,7 @@ chrome.action.onClicked.addListener(async function (tab) {
     })
   } else {
     if (tab.url.startsWith('http')) {
-      chrome.debugger.attach({ tabId: tab.id }, '1.2', function () {
+      chrome.debugger.attach({ tabId: tab.id }, '1.2', async function () {
         attachedTabId = tab.id
         attached = true
         sendCommand({ tabId: attachedTabId }, 'Fetch.enable', {
@@ -37,6 +38,28 @@ chrome.action.onClicked.addListener(async function (tab) {
           tabId: attachedTabId,
           path: 'assets/icon.png',
         })
+        const targets = await chrome.debugger.getTargets()
+        const tabUrl = new URL(tab.url)
+        const swTarget = targets.find(
+          (target) =>
+            target.url.startsWith(tabUrl.origin) && target.type === 'worker'
+        )
+        if (swTarget) {
+          // attach to service worker
+          chrome.debugger.attach(
+            { targetId: swTarget.id },
+            '1.2',
+            async function () {
+              attachedSwId = swTarget.id
+              sendCommand({ targetId: swTarget.id }, 'Fetch.enable', {
+                patterns: [
+                  { requestStage: 'Request' },
+                  { requestStage: 'Response' },
+                ],
+              })
+            }
+          )
+        }
       })
     } else {
       console.log('Debugger can only be attached to HTTP/HTTPS pages.')
@@ -59,13 +82,14 @@ chrome.debugger.onEvent.addListener(async function (source, method, params) {
         responseHeaders: [
           { name: 'Content-Type', value: 'text/event-stream' },
           { name: 'Cache-Control', value: 'no-cache' },
+          { name: 'Date', value: new Date().toUTCString() },
         ],
         body: bodyQueue.shift(),
       })
-      chrome.tabs.sendMessage(attachedTabId, { type: 'close' })
     } else {
-      if (params.request.headers.accept === 'text/event-stream') {
-        sseRequestId = params.requestId
+      const accept =
+        params.request.headers.accept || params.request.headers.Accept || ''
+      if (accept.includes('text/event-stream')) {
         esUrl = `${esPathPrefix}${reqUrl.pathname}`
         if (params.responseHeaders) {
           const resp = await sendCommand(source, 'Fetch.getResponseBody', {
@@ -74,14 +98,10 @@ chrome.debugger.onEvent.addListener(async function (source, method, params) {
           bodyQueue.push(resp.body)
           chrome.tabs.sendMessage(attachedTabId, { type: 'create', url: esUrl })
         }
-        sendCommand(source, 'Fetch.continueRequest', {
-          requestId: params.requestId,
-        })
-      } else {
-        sendCommand(source, 'Fetch.continueRequest', {
-          requestId: params.requestId,
-        })
       }
+      sendCommand(source, 'Fetch.continueRequest', {
+        requestId: params.requestId,
+      })
     }
   }
 })
