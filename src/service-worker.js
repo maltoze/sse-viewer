@@ -17,7 +17,7 @@ function sendCommand(target, method, params) {
 }
 
 chrome.action.onClicked.addListener(async function (tab) {
-  if (attachedTabId === tab.id) {
+  if (attachedTabId) {
     chrome.action.setIcon({
       tabId: attachedTabId,
       path: 'assets/icon-gray.png',
