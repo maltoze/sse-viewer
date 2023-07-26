@@ -1,7 +1,6 @@
-let esUrl
-let attachedTabId
-let attachedSwId
-let attached = false
+let esUrl = null
+let attachedTabId = null
+let attachedSwId = null
 const esPathPrefix = '/__maltoze-sse-viewer'
 const bodyQueue = []
 
@@ -18,25 +17,23 @@ function sendCommand(target, method, params) {
 }
 
 chrome.action.onClicked.addListener(async function (tab) {
-  if (attached) {
-    chrome.debugger.detach({ tabId: attachedTabId })
-    attachedSwId && chrome.debugger.detach({ targetId: attachedSwId })
-    attached = false
+  if (attachedTabId === tab.id) {
     chrome.action.setIcon({
       tabId: attachedTabId,
       path: 'assets/icon-gray.png',
     })
+    chrome.debugger.detach({ tabId: attachedTabId })
+    attachedSwId && chrome.debugger.detach({ targetId: attachedSwId })
   } else {
     if (tab.url.startsWith('http')) {
       chrome.debugger.attach({ tabId: tab.id }, '1.2', async function () {
         attachedTabId = tab.id
-        attached = true
-        sendCommand({ tabId: attachedTabId }, 'Fetch.enable', {
-          patterns: [{ requestStage: 'Request' }, { requestStage: 'Response' }],
-        })
         chrome.action.setIcon({
-          tabId: attachedTabId,
+          tabId: tab.id,
           path: 'assets/icon.png',
+        })
+        sendCommand({ tabId: tab.id }, 'Fetch.enable', {
+          patterns: [{ requestStage: 'Request' }, { requestStage: 'Response' }],
         })
         const targets = await chrome.debugger.getTargets()
         const tabUrl = new URL(tab.url)
@@ -68,8 +65,13 @@ chrome.action.onClicked.addListener(async function (tab) {
 })
 
 chrome.debugger.onDetach.addListener(function (source, reason) {
-  attached = false
-  chrome.action.setIcon({ tabId: attachedTabId, path: 'assets/icon-gray.png' })
+  attachedTabId &&
+    chrome.action.setIcon({
+      tabId: attachedTabId,
+      path: 'assets/icon-gray.png',
+    })
+  attachedTabId = null
+  attachedSwId = null
 })
 
 chrome.debugger.onEvent.addListener(async function (source, method, params) {
