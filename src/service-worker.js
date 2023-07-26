@@ -1,6 +1,7 @@
 let esUrl = null
 let attachedTabId = null
 let attachedSwId = null
+let sseRequestId = null
 const esPathPrefix = '/__maltoze-sse-viewer'
 const bodyQueue = []
 
@@ -16,12 +17,17 @@ function sendCommand(target, method, params) {
   })
 }
 
+function enableAction(tabId) {
+  chrome.action.setIcon({ tabId, path: 'assets/icon.png' })
+}
+
+function disableAction(tabId) {
+  chrome.action.setIcon({ tabId, path: 'assets/icon-gray.png' })
+}
+
 chrome.action.onClicked.addListener(async function (tab) {
   if (attachedTabId) {
-    chrome.action.setIcon({
-      tabId: attachedTabId,
-      path: 'assets/icon-gray.png',
-    })
+    disableAction(attachedTabId)
     chrome.debugger.detach({ tabId: attachedTabId })
     attachedSwId && chrome.debugger.detach({ targetId: attachedSwId })
     attachedTabId = null
@@ -30,13 +36,11 @@ chrome.action.onClicked.addListener(async function (tab) {
     if (tab.url.startsWith('http')) {
       chrome.debugger.attach({ tabId: tab.id }, '1.2', async function () {
         attachedTabId = tab.id
-        chrome.action.setIcon({
-          tabId: tab.id,
-          path: 'assets/icon.png',
-        })
+        enableAction(tab.id)
         sendCommand({ tabId: tab.id }, 'Fetch.enable', {
           patterns: [{ requestStage: 'Request' }, { requestStage: 'Response' }],
         })
+        sendCommand({ tabId: tab.id }, 'Network.enable', {})
         const targets = await chrome.debugger.getTargets()
         const tabUrl = new URL(tab.url)
         const swTarget = targets.find(
@@ -56,6 +60,7 @@ chrome.action.onClicked.addListener(async function (tab) {
                   { requestStage: 'Response' },
                 ],
               })
+              sendCommand({ targetId: swTarget.id }, 'Network.enable', {})
             },
           )
         }
@@ -67,16 +72,24 @@ chrome.action.onClicked.addListener(async function (tab) {
 })
 
 chrome.debugger.onDetach.addListener(function (_source, _reason) {
-  attachedTabId &&
-    chrome.action.setIcon({
-      tabId: attachedTabId,
-      path: 'assets/icon-gray.png',
-    })
+  attachedTabId && disableAction(attachedTabId)
   attachedTabId = null
   attachedSwId = null
 })
 
 chrome.debugger.onEvent.addListener(async function (source, method, params) {
+  if (!attachedTabId) return
+
+  if (method === 'Network.loadingFinished') {
+    if (params.requestId === sseRequestId) {
+      const resp = await sendCommand(source, 'Network.getResponseBody', {
+        requestId: params.requestId,
+      })
+      bodyQueue.push(btoa(resp.body))
+      chrome.tabs.sendMessage(attachedTabId, { type: 'create', url: esUrl })
+    }
+  }
+
   if (method === 'Fetch.requestPaused') {
     const reqUrl = new URL(params.request.url)
     if (reqUrl.pathname === esUrl) {
@@ -95,13 +108,14 @@ chrome.debugger.onEvent.addListener(async function (source, method, params) {
         params.request.headers.accept || params.request.headers.Accept || ''
       if (accept.includes('text/event-stream')) {
         esUrl = `${esPathPrefix}${reqUrl.pathname}`
-        if (params.responseHeaders) {
-          const resp = await sendCommand(source, 'Fetch.getResponseBody', {
-            requestId: params.requestId,
-          })
-          bodyQueue.push(resp.body)
-          chrome.tabs.sendMessage(attachedTabId, { type: 'create', url: esUrl })
-        }
+        sseRequestId = params.networkId
+        // if (params.responseHeaders) {
+        //   const resp = await sendCommand(source, 'Fetch.getResponseBody', {
+        //     requestId: params.requestId,
+        //   })
+        //   bodyQueue.push(resp.body)
+        //   chrome.tabs.sendMessage(attachedTabId, { type: 'create', url: esUrl })
+        // }
       }
       sendCommand(source, 'Fetch.continueRequest', {
         requestId: params.requestId,
