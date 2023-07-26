@@ -24,6 +24,8 @@ chrome.action.onClicked.addListener(async function (tab) {
     })
     chrome.debugger.detach({ tabId: attachedTabId })
     attachedSwId && chrome.debugger.detach({ targetId: attachedSwId })
+    attachedTabId = null
+    attachedSwId = null
   } else {
     if (tab.url.startsWith('http')) {
       chrome.debugger.attach({ tabId: tab.id }, '1.2', async function () {
