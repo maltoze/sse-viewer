@@ -41,7 +41,7 @@ chrome.action.onClicked.addListener(async function (tab) {
         const tabUrl = new URL(tab.url)
         const swTarget = targets.find(
           (target) =>
-            target.url.startsWith(tabUrl.origin) && target.type === 'worker'
+            target.url.startsWith(tabUrl.origin) && target.type === 'worker',
         )
         if (swTarget) {
           // attach to service worker
@@ -56,7 +56,7 @@ chrome.action.onClicked.addListener(async function (tab) {
                   { requestStage: 'Response' },
                 ],
               })
-            }
+            },
           )
         }
       })
@@ -66,7 +66,7 @@ chrome.action.onClicked.addListener(async function (tab) {
   }
 })
 
-chrome.debugger.onDetach.addListener(function (source, reason) {
+chrome.debugger.onDetach.addListener(function (_source, _reason) {
   attachedTabId &&
     chrome.action.setIcon({
       tabId: attachedTabId,

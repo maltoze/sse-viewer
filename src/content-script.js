@@ -1,6 +1,8 @@
-chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  const es = new EventSource(request.url)
-  es.onerror = function (ev) {
-    es.close()
-  }
-})
+chrome.runtime.onMessage.addListener(
+  function (request, _sender, _sendResponse) {
+    const es = new EventSource(request.url)
+    es.onerror = function (_ev) {
+      es.close()
+    }
+  },
+)

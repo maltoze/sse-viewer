@@ -1,5 +1,20 @@
 {
+  "name": "sse-viewer",
+  "version": "0.1.0",
+  "description": "SSE Viewer is a Chrome extension that allows you to view EventStream in the devtools.",
+  "scripts": {},
+  "keywords": [
+    "chrome extension",
+    "sse",
+    "server-sent-events",
+    "event-stream"
+  ],
+  "author": "maltoze",
+  "license": "MIT",
   "devDependencies": {
-    "@types/chrome": "^0.0.241"
+    "@types/chrome": "^0.0.241",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^5.0.0"
   }
 }
