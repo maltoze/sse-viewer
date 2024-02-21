@@ -1,3 +1,6 @@
+**This bug has been fixed and will be availble in Chrome 123 and newer, so this extension is no longer required**
+
+----
 # SSE Viewer Chrome Extension
 
 [![chrome](https://github-production-user-asset-6210df.s3.amazonaws.com/18044730/257728699-b3e38347-355e-4f13-9040-30b929f40f89.png)](https://chrome.google.com/webstore/detail/sse-viewer/pkofiecpdokojdgoccnbfplkphbmppaf)
